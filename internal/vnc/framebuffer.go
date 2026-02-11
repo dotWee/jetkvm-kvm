@@ -95,7 +95,7 @@ func (fb *Framebuffer) GetRect(x, y, width, height int) []byte {
 
 	data := make([]byte, width*height*4)
 	for row := 0; row < height; row++ {
-		srcOffset := ((y + row) * fb.width + x) * 4
+		srcOffset := ((y+row)*fb.width + x) * 4
 		dstOffset := row * width * 4
 		copy(data[dstOffset:dstOffset+width*4], fb.pixels[srcOffset:srcOffset+width*4])
 	}

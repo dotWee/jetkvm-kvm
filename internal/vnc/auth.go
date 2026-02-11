@@ -1,7 +1,7 @@
 package vnc
 
 import (
-	"crypto/des"    //nolint:gosec // DES is required by the VNC authentication protocol (RFB spec)
+	"crypto/des" //nolint:gosec // DES is required by the VNC authentication protocol (RFB spec)
 	"crypto/rand"
 	"crypto/subtle"
 	"fmt"

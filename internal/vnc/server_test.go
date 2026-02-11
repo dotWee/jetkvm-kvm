@@ -214,7 +214,7 @@ func TestAuthNoPassword(t *testing.T) {
 	secTypes := make([]byte, 2)
 	_, err := io.ReadFull(client, secTypes)
 	require.NoError(t, err)
-	assert.Equal(t, byte(1), secTypes[0])        // number of security types
+	assert.Equal(t, byte(1), secTypes[0])           // number of security types
 	assert.Equal(t, byte(secTypeNone), secTypes[1]) // None
 
 	// Client: choose security type None
@@ -736,9 +736,9 @@ func TestServerPointerEvents(t *testing.T) {
 	client.doHandshake("")
 
 	// Send pointer events
-	client.sendPointerEvent(0, 100, 200)    // move
-	client.sendPointerEvent(1, 100, 200)    // left click
-	client.sendPointerEvent(0, 300, 400)    // release + move
+	client.sendPointerEvent(0, 100, 200) // move
+	client.sendPointerEvent(1, 100, 200) // left click
+	client.sendPointerEvent(0, 300, 400) // release + move
 
 	// Request a framebuffer update to ensure all events are processed
 	client.sendFramebufferUpdateRequest(false, 0, 0, 1, 1)
