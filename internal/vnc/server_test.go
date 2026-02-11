@@ -1051,9 +1051,11 @@ func (c *vncClientHelper) sendSetPixelFormat() {
 	buf := make([]byte, 20)
 	buf[0] = msgSetPixelFormat
 	// bytes 1-3 padding
-	// bytes 4-19: pixel format (16 bytes) - use defaults
+	// bytes 4-19: pixel format (16 bytes) - write defaults into correct region
+	var pfBuf bytes.Buffer
 	pf := defaultPixelFormat()
-	pf.write(bytes.NewBuffer(buf[4:4]))
+	pf.write(&pfBuf)
+	copy(buf[4:20], pfBuf.Bytes())
 	_, err := c.conn.Write(buf)
 	require.NoError(c.t, err)
 }

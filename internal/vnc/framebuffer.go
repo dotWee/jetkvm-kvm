@@ -69,13 +69,20 @@ func (fb *Framebuffer) GetRect(x, y, width, height int) []byte {
 	fb.mu.RLock()
 	defer fb.mu.RUnlock()
 
-	// Clamp to framebuffer bounds
+	// Clamp negative coordinates
 	if x < 0 {
 		x = 0
 	}
 	if y < 0 {
 		y = 0
 	}
+
+	// Early exit if origin is already outside the framebuffer
+	if x >= fb.width || y >= fb.height {
+		return nil
+	}
+
+	// Clamp dimensions to framebuffer bounds
 	if x+width > fb.width {
 		width = fb.width - x
 	}
