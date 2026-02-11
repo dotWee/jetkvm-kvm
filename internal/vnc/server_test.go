@@ -1171,7 +1171,7 @@ func TestServerMaxConnections(t *testing.T) {
 	defer conn3.Close()
 
 	// Try to read from the rejected connection - it should be closed by the server
-	conn3.SetReadDeadline(time.Now().Add(1 * time.Second))
+	conn3.SetReadDeadline(time.Now().Add(time.Second))
 	buf := make([]byte, 12)
 	_, err = io.ReadFull(conn3, buf)
 	assert.Error(t, err, "third connection should fail since max connections is 2")

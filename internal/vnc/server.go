@@ -155,11 +155,11 @@ func (s *Server) Close() error {
 	for conn := range s.conns {
 		conns = append(conns, conn)
 	}
+	s.conns = make(map[net.Conn]struct{})
 	for _, conn := range conns {
 		if err := conn.Close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
-		delete(s.conns, conn)
 	}
 	return firstErr
 }
