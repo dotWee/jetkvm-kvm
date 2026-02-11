@@ -162,24 +162,25 @@ func cpixelSize(pf PixelFormat) int {
 
 // writeCPixel writes a pixel value as a CPIXEL.
 func writeCPixel(buf []byte, pixel uint32, pf PixelFormat, size int) {
-	if size == 3 {
+	switch size {
+	case 3:
 		// CPIXEL: least significant 3 bytes in little-endian order
 		buf[0] = byte(pixel)
 		buf[1] = byte(pixel >> 8)
 		buf[2] = byte(pixel >> 16)
-	} else if size == 2 {
+	case 2:
 		if pf.BigEndianFlag != 0 {
 			binary.BigEndian.PutUint16(buf, uint16(pixel))
 		} else {
 			binary.LittleEndian.PutUint16(buf, uint16(pixel))
 		}
-	} else if size == 4 {
+	case 4:
 		if pf.BigEndianFlag != 0 {
 			binary.BigEndian.PutUint32(buf, pixel)
 		} else {
 			binary.LittleEndian.PutUint32(buf, pixel)
 		}
-	} else if size == 1 {
+	case 1:
 		buf[0] = byte(pixel)
 	}
 }

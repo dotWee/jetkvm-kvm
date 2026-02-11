@@ -43,7 +43,9 @@ export default function SettingsVNCRoute() {
     (enabled: boolean) => {
       send("setVNCEnabled", { enabled }, (resp: JsonRpcResponse) => {
         if ("error" in resp) {
-          notifications.error(`Failed to ${enabled ? "enable" : "disable"} VNC: ${resp.error.message}`);
+          notifications.error(
+            `Failed to ${enabled ? "enable" : "disable"} VNC: ${resp.error.message}`,
+          );
           return;
         }
         notifications.success(`VNC server ${enabled ? "enabled" : "disabled"}`);
@@ -109,8 +111,8 @@ export default function SettingsVNCRoute() {
       <div className="flex items-center gap-x-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
         <LuMonitorSmartphone className="h-4 w-4 shrink-0" />
         <span>
-          <strong>Experimental:</strong> VNC support is experimental. Performance may vary and
-          some features may be limited.
+          <strong>Experimental:</strong> VNC support is experimental. Performance may vary and some
+          features may be limited.
         </span>
       </div>
 
