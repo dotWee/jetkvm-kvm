@@ -106,7 +106,7 @@ func doVideoSleepModeTicker(ctx context.Context, duration time.Duration) {
 	for {
 		select {
 		case <-timer.C:
-			if getActiveSessions() > 0 {
+			if getActiveSessions() > 0 || rdpHasActiveSession() {
 				nativeLogger.Warn().Msg("not going to enter HDMI sleep mode because there are active sessions")
 				continue
 			}

@@ -935,5 +935,19 @@
     "wake_on_lan_invalid_mac": "無效的 MAC 位址",
     "wake_on_lan_magic_sent_success": "Magic Packet 傳送成功",
     "welcome_to_jetkvm": "歡迎使用 JetKVM",
-    "welcome_to_jetkvm_description": "遠端控制任何電腦"
+    "welcome_to_jetkvm_description": "遠端控制任何電腦",
+    "access_rdp_title": "RDP Server",
+    "access_rdp_description": "Enable experimental Remote Desktop Protocol access for local network clients.",
+    "access_rdp_updated": "RDP settings updated successfully",
+    "access_rdp_update_failed": "Failed to update RDP settings: {error}",
+    "access_rdp_hint_copied": "FreeRDP connection command copied to clipboard",
+    "access_rdp_hint_copy_failed": "Failed to copy FreeRDP command: {error}",
+    "access_rdp_status_title": "RDP Status",
+    "access_rdp_status_running": "Running",
+    "access_rdp_status_stopped": "Stopped",
+    "access_rdp_status_error": "Error: {error}",
+    "access_rdp_port_title": "RDP Port",
+    "access_rdp_port_description": "Fixed port for RDP v1 compatibility.",
+    "access_rdp_freerdp_hint_label": "FreeRDP command (copy-only)",
+    "access_rdp_copy_hint_button": "Copy command"
 }

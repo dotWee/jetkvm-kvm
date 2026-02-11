@@ -10,6 +10,7 @@ import (
 	"github.com/jetkvm/kvm/internal/confparser"
 	"github.com/jetkvm/kvm/internal/logging"
 	"github.com/jetkvm/kvm/internal/network/types"
+	"github.com/jetkvm/kvm/internal/rdp"
 	"github.com/jetkvm/kvm/internal/sync"
 	"github.com/jetkvm/kvm/internal/usbgadget"
 
@@ -108,6 +109,9 @@ type Config struct {
 	DisplayDimAfterSec   int                  `json:"display_dim_after_sec"`
 	DisplayOffAfterSec   int                  `json:"display_off_after_sec"`
 	TLSMode              string               `json:"tls_mode"` // options: "self-signed", "user-defined", ""
+	RDPEnabled           bool                 `json:"rdp_enabled"`
+	RDPPort              int                  `json:"rdp_port"`
+	RDPMaxFPS            int                  `json:"rdp_max_fps"`
 	UsbConfig            *usbgadget.Config    `json:"usb_config"`
 	UsbDevices           *usbgadget.Devices   `json:"usb_devices"`
 	NetworkConfig        *types.NetworkConfig `json:"network_config"`
@@ -186,6 +190,9 @@ func getDefaultConfig() Config {
 		DisplayDimAfterSec:   120,  // 2 minutes
 		DisplayOffAfterSec:   1800, // 30 minutes
 		JigglerEnabled:       false,
+		RDPEnabled:           false,
+		RDPPort:              rdp.DefaultPort,
+		RDPMaxFPS:            rdp.DefaultMaxFPS,
 		// This is the "Standard" jiggler option in the UI
 		JigglerConfig: func() *JigglerConfig { c := defaultJigglerConfig; return &c }(),
 		TLSMode:       "",
@@ -278,6 +285,8 @@ func LoadConfig() {
 		loadedConfig.DefaultLogLevel = "WARN"
 	}
 
+	normalizeRDPConfig(&loadedConfig)
+
 	config = &loadedConfig
 
 	logging.GetRootLogger().UpdateLogLevel(config.DefaultLogLevel)
@@ -331,4 +340,15 @@ func ensureConfigLoaded() {
 	if config == nil {
 		LoadConfig()
 	}
+}
+
+func normalizeRDPConfig(c *Config) {
+	norm := rdp.NormalizeConfig(rdp.Config{
+		Enabled: c.RDPEnabled,
+		Port:    c.RDPPort,
+		MaxFPS:  c.RDPMaxFPS,
+	})
+	c.RDPEnabled = norm.Enabled
+	c.RDPPort = norm.Port
+	c.RDPMaxFPS = norm.MaxFPS
 }

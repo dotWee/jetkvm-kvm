@@ -19,6 +19,7 @@ import (
 	"go.bug.st/serial"
 
 	"github.com/jetkvm/kvm/internal/hidrpc"
+	"github.com/jetkvm/kvm/internal/rdp"
 	"github.com/jetkvm/kvm/internal/usbgadget"
 	"github.com/jetkvm/kvm/internal/utils"
 )
@@ -429,6 +430,55 @@ func rpcSetTLSState(state TLSState) error {
 	}
 
 	return nil
+}
+
+func rpcGetRDPState() (rdp.State, error) {
+	return getRDPState(), nil
+}
+
+type rpcRDPStateUpdate struct {
+	Enabled bool `json:"enabled"`
+	MaxFPS  *int `json:"maxFps,omitempty"`
+}
+
+func rpcSetRDPState(state rpcRDPStateUpdate) (rdp.State, error) {
+	changed := false
+
+	if config.RDPEnabled != state.Enabled {
+		config.RDPEnabled = state.Enabled
+		changed = true
+	}
+
+	if state.MaxFPS != nil && config.RDPMaxFPS != *state.MaxFPS {
+		config.RDPMaxFPS = *state.MaxFPS
+		changed = true
+	}
+
+	// v1 uses fixed port 3389 exposed in UI.
+	if config.RDPPort != rdp.DefaultPort {
+		config.RDPPort = rdp.DefaultPort
+		changed = true
+	}
+
+	prevMaxFPS := config.RDPMaxFPS
+	prevPort := config.RDPPort
+	prevEnabled := config.RDPEnabled
+	normalizeRDPConfig(config)
+	if config.RDPEnabled != prevEnabled || config.RDPPort != prevPort || config.RDPMaxFPS != prevMaxFPS {
+		changed = true
+	}
+
+	if changed {
+		if err := SaveConfig(); err != nil {
+			return getRDPState(), fmt.Errorf("failed to save config: %w", err)
+		}
+	}
+
+	if err := applyRDPConfig(); err != nil {
+		return getRDPState(), err
+	}
+
+	return getRDPState(), nil
 }
 
 type RPCHandler struct {
@@ -1166,6 +1216,8 @@ var rpcHandlers = map[string]RPCHandler{
 	"setSSHKeyState":         {Func: rpcSetSSHKeyState, Params: []string{"sshKey"}},
 	"getTLSState":            {Func: rpcGetTLSState},
 	"setTLSState":            {Func: rpcSetTLSState, Params: []string{"state"}},
+	"getRDPState":            {Func: rpcGetRDPState},
+	"setRDPState":            {Func: rpcSetRDPState, Params: []string{"state"}},
 	"setMassStorageMode":     {Func: rpcSetMassStorageMode, Params: []string{"mode"}},
 	"getMassStorageMode":     {Func: rpcGetMassStorageMode},
 	"isUpdatePending":        {Func: rpcIsUpdatePending},

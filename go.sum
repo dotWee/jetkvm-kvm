@@ -70,6 +70,8 @@ github.com/gwatts/rootcerts v0.0.0-20250901182336-dc5ae18bd79f h1:08t2PbrkDgW2+m
 github.com/gwatts/rootcerts v0.0.0-20250901182336-dc5ae18bd79f/go.mod h1:5Kt9XkWvkGi2OHOq0QsGxebHmhCcqJ8KCbNg/a6+n+g=
 github.com/hugelgupf/socketpair v0.0.0-20190730060125-05d35a94e714 h1:/jC7qQFrv8CrSJVmaolDVOxTfS9kc36uB6H40kdbQq8=
 github.com/hugelgupf/socketpair v0.0.0-20190730060125-05d35a94e714/go.mod h1:2Goc3h8EklBH5mspfHFxBnEoURQCGzQQH1ga9Myjvis=
+github.com/huin/asn1ber v0.0.0-20120622192748-af09f62e6358 h1:hVXNJ57IHkOA8FBq80UG263MEBwNUMfS9c82J2QE5UQ=
+github.com/huin/asn1ber v0.0.0-20120622192748-af09f62e6358/go.mod h1:qBE210J2T9uLXRB3GNc73SvZACDEFAmDCOlDkV47zbY=
 github.com/insomniacslk/dhcp v0.0.0-20250919081422-f80a1952f48e h1:nu5z6Kg+gMNW6tdqnVjg/QEJ8Nw71IJQqOtWj00XHEU=
 github.com/insomniacslk/dhcp v0.0.0-20250919081422-f80a1952f48e/go.mod h1:qfvBmyDNp+/liLEYWRvqny/PEz9hGe2Dz833eXILSmo=
 github.com/jonboulle/clockwork v0.5.0 h1:Hyh9A8u51kptdkR+cqRpT1EebBwTn1oK9YfGYbdFz6I=
@@ -79,6 +81,8 @@ github.com/josharian/native v1.1.0 h1:uuaP0hAbW7Y4l0ZRQ6C9zfb7Mg1mbFKry/xzDAfmtL
 github.com/josharian/native v1.1.0/go.mod h1:7X/raswPFr05uY3HiLlYeyQntB6OO7E/d2Cu7qoaN2w=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
+github.com/kdsmith18542/gordp v0.0.0-20251203031216-7568646e89f2 h1:rp2QIwELpgvWd/aXhR1OyyPIwtXSKgKYvrPQ8p2pZvg=
+github.com/kdsmith18542/gordp v0.0.0-20251203031216-7568646e89f2/go.mod h1:Y5l+kjNAqkenkc0t16G686o0IbjyNF7t40HFBiLbjw4=
 github.com/klauspost/compress v1.18.0 h1:c/Cqfb0r+Yi+JtIEq73FWXVkRonBlf0CRNYc8Zttxdo=
 github.com/klauspost/compress v1.18.0/go.mod h1:2Pp+KzxcywXVXMr50+X0Q/Lsb43OQHYWRCY2AiWywWQ=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=

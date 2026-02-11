@@ -114,6 +114,10 @@ func Main() {
 		logger.Warn().Err(err).Msg("failed to init images folder")
 	}
 	initJiggler()
+	initRDPManager()
+	if err := applyRDPConfig(); err != nil {
+		rdpLogger.Warn().Err(err).Msg("failed to apply initial rdp config")
+	}
 
 	// start video sleep mode timer
 	startVideoSleepModeTicker()
@@ -132,7 +136,7 @@ func Main() {
 				continue
 			}
 
-			if currentSession != nil {
+			if currentSession != nil || rdpHasActiveSession() {
 				logger.Debug().Msg("skipping update since a session is active")
 				time.Sleep(1 * time.Minute)
 				continue

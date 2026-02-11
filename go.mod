@@ -17,6 +17,7 @@ require (
 	github.com/guregu/null/v6 v6.0.0
 	github.com/gwatts/rootcerts v0.0.0-20250901182336-dc5ae18bd79f
 	github.com/insomniacslk/dhcp v0.0.0-20250919081422-f80a1952f48e
+	github.com/kdsmith18542/gordp v0.0.0-20251203031216-7568646e89f2
 	github.com/mdlayher/ndp v1.1.0
 	github.com/pion/logging v0.2.4
 	github.com/pion/mdns/v2 v2.1.0
@@ -56,6 +57,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/huin/asn1ber v0.0.0-20120622192748-af09f62e6358 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

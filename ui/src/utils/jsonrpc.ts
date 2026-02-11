@@ -266,3 +266,27 @@ export async function checkUpdateComponents(params: updateParams, includePreRele
   if (response.error) throw response.error;
   return response.result;
 }
+
+export interface RDPState {
+  enabled: boolean;
+  running: boolean;
+  port: number;
+  activeSessions: number;
+  maxFps: number;
+  lastError: string;
+}
+
+export async function getRDPState(): Promise<RDPState> {
+  const response = await callJsonRpc<RDPState>({ method: "getRDPState" });
+  if (response.error) throw response.error;
+  return response.result;
+}
+
+export async function setRDPState(state: { enabled: boolean; maxFps?: number }): Promise<RDPState> {
+  const response = await callJsonRpc<RDPState>({
+    method: "setRDPState",
+    params: { state },
+  });
+  if (response.error) throw response.error;
+  return response.result;
+}

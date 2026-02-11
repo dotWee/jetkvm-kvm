@@ -235,19 +235,7 @@ func handleWebRTCSession(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
 	}
-	if currentSession != nil {
-		writeJSONRPCEvent("otherSessionConnected", nil, currentSession)
-		peerConn := currentSession.peerConnection
-		go func() {
-			time.Sleep(1 * time.Second)
-			_ = peerConn.Close()
-		}()
-	}
-
-	// Cancel any ongoing keyboard macro when session changes
-	cancelKeyboardMacro()
-
-	currentSession = session
+	setCurrentSessionWithTakeover(session)
 	c.JSON(http.StatusOK, gin.H{"sd": sd})
 }
 

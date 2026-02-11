@@ -6,6 +6,7 @@ import { useDeviceUiNavigation } from "@hooks/useAppNavigation";
 import { JsonRpcResponse, useJsonRpc } from "@hooks/useJsonRpc";
 import { GridCard } from "@components/Card";
 import { Button, LinkButton } from "@components/Button";
+import Checkbox from "@components/Checkbox";
 import { InputFieldWithLabel } from "@components/InputField";
 import { SelectMenuBasic } from "@components/SelectMenuBasic";
 import { SettingsItem } from "@components/SettingsItem";
@@ -17,6 +18,11 @@ import api from "@/api";
 import notifications from "@/notifications";
 import { DEVICE_API } from "@/ui.config";
 import { isOnDevice } from "@/main";
+import {
+  getRDPState as getRDPStateRpc,
+  setRDPState as setRDPStateRpc,
+  type RDPState,
+} from "@/utils/jsonrpc";
 import { m } from "@localizations/messages.js";
 
 import { LocalDevice } from "./devices.$id";
@@ -56,6 +62,8 @@ export default function SettingsAccessIndexRoute() {
   const [tlsMode, setTlsMode] = useState<string>("unknown");
   const [tlsCert, setTlsCert] = useState<string>("");
   const [tlsKey, setTlsKey] = useState<string>("");
+  const [rdpState, setRdpState] = useState<RDPState | null>(null);
+  const [rdpUpdating, setRdpUpdating] = useState(false);
 
   const getCloudState = useCallback(() => {
     send("getCloudState", {}, (resp: JsonRpcResponse) => {
@@ -88,6 +96,15 @@ export default function SettingsAccessIndexRoute() {
       if (tlsState.privateKey) setTlsKey(tlsState.privateKey);
     });
   }, [send]);
+
+  const getRDPState = useCallback(async () => {
+    try {
+      const state = await getRDPStateRpc();
+      setRdpState(state);
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
 
   const deregisterDevice = () => {
     send("deregisterDevice", {}, (resp: JsonRpcResponse) => {
@@ -192,16 +209,56 @@ export default function SettingsAccessIndexRoute() {
     updateTlsState(tlsMode, tlsCert, tlsKey);
   };
 
+  const handleRdpToggle = useCallback(
+    async (enabled: boolean) => {
+      if (rdpUpdating || !rdpState) return;
+      setRdpUpdating(true);
+      try {
+        const next = await setRDPStateRpc({
+          enabled,
+          maxFps: rdpState.maxFps,
+        });
+        setRdpState(next);
+        notifications.success(m.access_rdp_updated());
+      } catch (error) {
+        notifications.error(
+          m.access_rdp_update_failed({
+            error: error instanceof Error ? error.message : m.unknown_error(),
+          }),
+        );
+      } finally {
+        setRdpUpdating(false);
+      }
+    },
+    [rdpState, rdpUpdating],
+  );
+
+  const copyRDPHint = useCallback(async () => {
+    const host = window.location.hostname || "jetkvm.local";
+    const hint = `xfreerdp /v:${host}:3389 /sec:tls /cert:tofu`;
+    try {
+      await navigator.clipboard.writeText(hint);
+      notifications.success(m.access_rdp_hint_copied());
+    } catch (error) {
+      notifications.error(
+        m.access_rdp_hint_copy_failed({
+          error: error instanceof Error ? error.message : m.unknown_error(),
+        }),
+      );
+    }
+  }, []);
+
   // Fetch device ID and cloud state on component mount
   useEffect(() => {
     getCloudState();
     getTLSState();
+    void getRDPState();
 
     send("getDeviceID", {}, (resp: JsonRpcResponse) => {
       if ("error" in resp) return console.error(resp.error);
       setDeviceId(resp.result as string);
     });
-  }, [send, getCloudState, getTLSState]);
+  }, [send, getCloudState, getTLSState, getRDPState]);
 
   return (
     <div className="space-y-4">
@@ -260,6 +317,60 @@ export default function SettingsAccessIndexRoute() {
                       theme="primary"
                       text={m.access_update_tls_settings()}
                       onClick={handleCustomTlsUpdate}
+                    />
+                  </div>
+                </NestedSettingsGroup>
+              )}
+
+              <SettingsItem
+                title={m.access_rdp_title()}
+                badge={m.experimental()}
+                loading={rdpUpdating}
+                description={m.access_rdp_description()}
+              >
+                <Checkbox
+                  checked={rdpState?.enabled ?? false}
+                  disabled={rdpState === null || rdpUpdating}
+                  onChange={e => {
+                    void handleRdpToggle(e.target.checked);
+                  }}
+                />
+              </SettingsItem>
+
+              {rdpState && (
+                <NestedSettingsGroup className="mt-4">
+                  <SettingsItem
+                    title={m.access_rdp_status_title()}
+                    description={
+                      rdpState.lastError
+                        ? m.access_rdp_status_error({ error: rdpState.lastError })
+                        : rdpState.running
+                          ? m.access_rdp_status_running()
+                          : m.access_rdp_status_stopped()
+                    }
+                  />
+                  <SettingsItem
+                    title={m.access_rdp_port_title()}
+                    description={m.access_rdp_port_description()}
+                  >
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      3389
+                    </span>
+                  </SettingsItem>
+                  <TextAreaWithLabel
+                    label={m.access_rdp_freerdp_hint_label()}
+                    rows={2}
+                    readOnly
+                    value={`xfreerdp /v:${window.location.hostname || "jetkvm.local"}:3389 /sec:tls /cert:tofu`}
+                  />
+                  <div className="flex items-center gap-x-2">
+                    <Button
+                      size="SM"
+                      theme="light"
+                      text={m.access_rdp_copy_hint_button()}
+                      onClick={() => {
+                        void copyRDPHint();
+                      }}
                     />
                   </div>
                 </NestedSettingsGroup>

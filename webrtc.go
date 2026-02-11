@@ -425,11 +425,13 @@ func newSession(config SessionConfig) (*Session, error) {
 		}
 		if connectionState == webrtc.ICEConnectionStateClosed {
 			scopedLogger.Debug().Msg("ICE Connection State is closed, unmounting virtual media")
+			controlSessionLock.Lock()
 			if session == currentSession {
 				// Cancel any ongoing keyboard report multi when session closes
 				cancelKeyboardMacro()
 				currentSession = nil
 			}
+			controlSessionLock.Unlock()
 			// Stop RPC processor
 			if session.rpcQueue != nil {
 				close(session.rpcQueue)
@@ -454,6 +456,10 @@ func newSession(config SessionConfig) (*Session, error) {
 				isConnected = false
 				onActiveSessionsChanged()
 				if decrActiveSessions() == 0 {
+					if rdpHasActiveSession() {
+						scopedLogger.Info().Msg("last WebRTC session disconnected, keeping video stream active for RDP session")
+						return
+					}
 					scopedLogger.Info().Msg("last session disconnected, stopping video stream")
 					onLastSessionDisconnected()
 				}
