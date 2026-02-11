@@ -4,6 +4,7 @@ import (
 	"crypto/des"    //nolint:gosec // DES is required by the VNC authentication protocol (RFB spec)
 	"crypto/rand"
 	"crypto/subtle"
+	"fmt"
 	"io"
 )
 
@@ -80,6 +81,9 @@ func performAuth(rw io.ReadWriter, password string) error {
 		if _, err := io.ReadFull(rw, chosenType); err != nil {
 			return err
 		}
+		if chosenType[0] != secTypeNone {
+			return fmt.Errorf("client chose unsupported security type: %d", chosenType[0])
+		}
 
 		// Send SecurityResult (0 = OK)
 		result := []byte{0, 0, 0, 0}
@@ -97,6 +101,9 @@ func performAuth(rw io.ReadWriter, password string) error {
 	chosenType := make([]byte, 1)
 	if _, err := io.ReadFull(rw, chosenType); err != nil {
 		return err
+	}
+	if chosenType[0] != secTypeVNCAuth {
+		return fmt.Errorf("client chose unsupported security type: %d", chosenType[0])
 	}
 
 	// Send challenge

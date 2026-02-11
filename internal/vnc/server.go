@@ -8,8 +8,18 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
+)
+
+const (
+	// defaultMaxConnections is the default maximum number of concurrent VNC connections.
+	defaultMaxConnections = 10
+
+	// connReadTimeout is how long to wait for a client message before timing out.
+	// This prevents goroutine leaks from idle or abandoned connections.
+	connReadTimeout = 5 * time.Minute
 )
 
 var (
@@ -34,6 +44,7 @@ type Server struct {
 	inputHandler InputEventHandler
 	password     string
 	logger       *zerolog.Logger
+	maxConns     int
 
 	mu       sync.Mutex
 	conns    map[net.Conn]struct{}
@@ -48,6 +59,7 @@ func NewServer(fb *Framebuffer, inputHandler InputEventHandler, opts ...Option) 
 		inputHandler: inputHandler,
 		conns:        make(map[net.Conn]struct{}),
 		closedCh:     make(chan struct{}),
+		maxConns:     defaultMaxConnections,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -69,6 +81,15 @@ func WithPassword(password string) Option {
 func WithLogger(logger *zerolog.Logger) Option {
 	return func(s *Server) {
 		s.logger = logger
+	}
+}
+
+// WithMaxConnections sets the maximum number of concurrent VNC connections.
+func WithMaxConnections(max int) Option {
+	return func(s *Server) {
+		if max > 0 {
+			s.maxConns = max
+		}
 	}
 }
 
@@ -98,6 +119,12 @@ func (s *Server) Serve(l net.Listener) error {
 		}
 
 		s.mu.Lock()
+		if len(s.conns) >= s.maxConns {
+			s.mu.Unlock()
+			s.logWarn().Int("max", s.maxConns).Msg("max VNC connections reached, rejecting")
+			conn.Close()
+			continue
+		}
 		s.conns[conn] = struct{}{}
 		s.mu.Unlock()
 
@@ -123,7 +150,12 @@ func (s *Server) Close() error {
 		}
 	}
 
+	// Collect connections first, then close them to avoid modifying map during iteration.
+	conns := make([]net.Conn, 0, len(s.conns))
 	for conn := range s.conns {
+		conns = append(conns, conn)
+	}
+	for _, conn := range conns {
 		if err := conn.Close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
@@ -154,8 +186,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	s.logInfo().Str("remote", conn.RemoteAddr().String()).Msg("VNC client connected")
 
-	if err := s.handleClientMessages(r, w); err != nil {
-		if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
+	if err := s.handleClientMessages(r, w, conn); err != nil {
+		if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) && !isTimeoutError(err) {
 			s.logWarn().Err(err).Str("remote", conn.RemoteAddr().String()).Msg("VNC client error")
 		}
 	}
@@ -229,8 +261,13 @@ func (s *Server) sendServerInit(w *bufio.Writer) error {
 	return nil
 }
 
-func (s *Server) handleClientMessages(r *bufio.Reader, w *bufio.Writer) error {
+func (s *Server) handleClientMessages(r *bufio.Reader, w *bufio.Writer, conn net.Conn) error {
 	for {
+		// Set a read deadline to prevent goroutine leaks from idle/abandoned connections.
+		if err := conn.SetReadDeadline(time.Now().Add(connReadTimeout)); err != nil {
+			return err
+		}
+
 		msgType := make([]byte, 1)
 		if _, err := io.ReadFull(r, msgType); err != nil {
 			return err
@@ -343,6 +380,9 @@ func (s *Server) sendFramebufferUpdate(w *bufio.Writer, req FramebufferUpdateReq
 	}
 
 	data := s.framebuffer.GetRect(int(x), int(y), int(width), int(height))
+	if data == nil {
+		return writeFramebufferUpdateHeader(w, 0)
+	}
 
 	if err := writeFramebufferUpdateHeader(w, 1); err != nil {
 		return err
@@ -383,4 +423,13 @@ func (rw *readWriteFlusher) Write(p []byte) (int, error) {
 		return n, err
 	}
 	return n, rw.w.Flush()
+}
+
+// isTimeoutError checks if an error is a network timeout error.
+func isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	netErr, ok := err.(net.Error)
+	return ok && netErr.Timeout()
 }

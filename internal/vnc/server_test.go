@@ -1130,6 +1130,7 @@ func TestNewServerWithOptions(t *testing.T) {
 	assert.NotNil(t, s1)
 	assert.Empty(t, s1.password)
 	assert.Nil(t, s1.logger)
+	assert.Equal(t, defaultMaxConnections, s1.maxConns)
 
 	// Test with password option
 	s2 := NewServer(fb, nil, WithPassword("secret"))
@@ -1137,7 +1138,112 @@ func TestNewServerWithOptions(t *testing.T) {
 
 	// Test with multiple options
 	handler := &mockInputHandler{}
-	s3 := NewServer(fb, handler, WithPassword("pass"))
+	s3 := NewServer(fb, handler, WithPassword("pass"), WithMaxConnections(5))
 	assert.Equal(t, "pass", s3.password)
 	assert.NotNil(t, s3.inputHandler)
+	assert.Equal(t, 5, s3.maxConns)
+}
+
+func TestServerMaxConnections(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+	server := NewServer(fb, nil, WithMaxConnections(2))
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	addr := listener.Addr().String()
+
+	// Connect first two clients - should succeed
+	client1 := newVNCClient(t, addr)
+	defer client1.close()
+	client1.doHandshake("")
+
+	client2 := newVNCClient(t, addr)
+	defer client2.close()
+	client2.doHandshake("")
+
+	// Third connection should be rejected - server closes it immediately
+	conn3, err := net.DialTimeout("tcp", addr, 2*time.Second)
+	require.NoError(t, err)
+	defer conn3.Close()
+
+	// Try to read from the rejected connection - it should be closed by the server
+	conn3.SetReadDeadline(time.Now().Add(1 * time.Second))
+	buf := make([]byte, 12)
+	_, err = io.ReadFull(conn3, buf)
+	assert.Error(t, err, "third connection should fail since max connections is 2")
+
+	// First two clients should still work
+	client1.sendFramebufferUpdateRequest(false, 0, 0, 1, 1)
+	numRects, err := client1.readFramebufferUpdate()
+	require.NoError(t, err)
+	assert.Equal(t, uint16(1), numRects)
+}
+
+func TestServerMaxConnectionsZeroIsIgnored(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+	// WithMaxConnections(0) should be ignored, keeping default
+	server := NewServer(fb, nil, WithMaxConnections(0))
+	assert.Equal(t, defaultMaxConnections, server.maxConns)
+}
+
+func TestAuthInvalidSecurityTypeNone(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		rw := &readWriteFlusher{
+			r: bufio.NewReader(server),
+			w: bufio.NewWriter(server),
+		}
+		errCh <- performAuth(rw, "")
+	}()
+
+	// Client: read security types
+	secTypes := make([]byte, 2)
+	_, err := io.ReadFull(client, secTypes)
+	require.NoError(t, err)
+
+	// Client: choose WRONG security type (VNCAuth instead of None)
+	_, err = client.Write([]byte{secTypeVNCAuth})
+	require.NoError(t, err)
+
+	// Server should return an error
+	authErr := <-errCh
+	assert.Error(t, authErr)
+	assert.Contains(t, authErr.Error(), "unsupported security type")
+}
+
+func TestAuthInvalidSecurityTypeVNCAuth(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		rw := &readWriteFlusher{
+			r: bufio.NewReader(server),
+			w: bufio.NewWriter(server),
+		}
+		errCh <- performAuth(rw, "password")
+	}()
+
+	// Client: read security types
+	secTypes := make([]byte, 2)
+	_, err := io.ReadFull(client, secTypes)
+	require.NoError(t, err)
+
+	// Client: choose WRONG security type (None instead of VNCAuth)
+	_, err = client.Write([]byte{secTypeNone})
+	require.NoError(t, err)
+
+	// Server should return an error
+	authErr := <-errCh
+	assert.Error(t, authErr)
+	assert.Contains(t, authErr.Error(), "unsupported security type")
 }
