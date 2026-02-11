@@ -255,6 +255,9 @@ func (s *Server) handleClientMessages(r *bufio.Reader, w *bufio.Writer) error {
 				return err
 			}
 			numEncodings := binary.BigEndian.Uint16(header[1:3])
+			if numEncodings > maxEncodings {
+				return fmt.Errorf("too many encodings requested: %d", numEncodings)
+			}
 			// Read and discard encoding types
 			encodings := make([]byte, numEncodings*4)
 			if _, err := io.ReadFull(r, encodings); err != nil {
@@ -298,6 +301,9 @@ func (s *Server) handleClientMessages(r *bufio.Reader, w *bufio.Writer) error {
 				return err
 			}
 			textLen := binary.BigEndian.Uint32(header[3:7])
+			if textLen > maxClientCutTextLen {
+				return fmt.Errorf("client cut text too large: %d bytes", textLen)
+			}
 			// Read and discard clipboard text
 			if textLen > 0 {
 				text := make([]byte, textLen)
@@ -321,6 +327,10 @@ func (s *Server) sendFramebufferUpdate(w *bufio.Writer, req FramebufferUpdateReq
 	// Clamp to framebuffer bounds
 	fbW := uint16(s.framebuffer.Width())
 	fbH := uint16(s.framebuffer.Height())
+
+	if x >= fbW || y >= fbH {
+		return writeFramebufferUpdateHeader(w, 0)
+	}
 	if x+width > fbW {
 		width = fbW - x
 	}

@@ -37,6 +37,12 @@ const (
 	encodingRaw = 0
 )
 
+// maxClientCutTextLen limits the clipboard text size to prevent OOM from malicious clients.
+const maxClientCutTextLen = 10 * 1024 * 1024 // 10 MB
+
+// maxEncodings limits the number of encoding types a client can request.
+const maxEncodings = 256
+
 // PixelFormat describes the pixel format for the RFB protocol.
 type PixelFormat struct {
 	BitsPerPixel  uint8

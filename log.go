@@ -29,6 +29,7 @@ var (
 	displayLogger   = logging.GetSubsystemLogger("display")
 	wolLogger       = logging.GetSubsystemLogger("wol")
 	usbLogger       = logging.GetSubsystemLogger("usb")
+	vncLogger       = logging.GetSubsystemLogger("vnc")
 	// external components
 	ginLogger = logging.GetSubsystemLogger("gin")
 )

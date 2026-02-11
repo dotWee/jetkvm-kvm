@@ -4,14 +4,10 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/jetkvm/kvm/internal/logging"
 	"github.com/jetkvm/kvm/internal/vnc"
 )
 
-var (
-	vncLogger = logging.GetSubsystemLogger("vnc")
-	vncServer *vnc.Server
-)
+var vncServer *vnc.Server
 
 // vncInputHandler forwards VNC input events to the USB HID gadget.
 type vncInputHandler struct{}
@@ -53,6 +49,10 @@ func rpcGetVNCConfig() VNCConfig {
 func rpcSetVNCConfig(vncConfig VNCConfig) error {
 	if vncConfig.Port < 1 || vncConfig.Port > 65535 {
 		return fmt.Errorf("invalid VNC port: %d", vncConfig.Port)
+	}
+
+	if len(vncConfig.Password) > 8 {
+		vncLogger.Warn().Msg("VNC password exceeds 8 characters; only the first 8 will be used per the RFB protocol")
 	}
 
 	config.VNCEnabled = vncConfig.Enabled

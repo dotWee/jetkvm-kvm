@@ -64,17 +64,33 @@ func (fb *Framebuffer) Update(img *image.RGBA) {
 
 // GetRect returns the pixel data for the specified rectangle region.
 // The returned data is in BGRA format.
+// Coordinates are clamped to framebuffer bounds.
 func (fb *Framebuffer) GetRect(x, y, width, height int) []byte {
 	fb.mu.RLock()
 	defer fb.mu.RUnlock()
 
+	// Clamp to framebuffer bounds
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+	if x+width > fb.width {
+		width = fb.width - x
+	}
+	if y+height > fb.height {
+		height = fb.height - y
+	}
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+
 	data := make([]byte, width*height*4)
 	for row := 0; row < height; row++ {
-		srcOffset := ((y+row)*fb.width + x) * 4
+		srcOffset := ((y + row) * fb.width + x) * 4
 		dstOffset := row * width * 4
-		if srcOffset+width*4 <= len(fb.pixels) {
-			copy(data[dstOffset:dstOffset+width*4], fb.pixels[srcOffset:srcOffset+width*4])
-		}
+		copy(data[dstOffset:dstOffset+width*4], fb.pixels[srcOffset:srcOffset+width*4])
 	}
 	return data
 }

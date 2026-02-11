@@ -871,3 +871,271 @@ func TestServerMultipleClients(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint16(1), numRects2)
 }
+
+// --- Edge Case Tests ---
+
+func TestFramebufferGetRectOutOfBounds(t *testing.T) {
+	fb := NewFramebuffer(10, 10)
+
+	// Request completely outside bounds
+	data := fb.GetRect(20, 20, 5, 5)
+	assert.Nil(t, data)
+
+	// Request partially outside bounds (clamped)
+	data = fb.GetRect(8, 8, 5, 5)
+	assert.NotNil(t, data)
+	// Should be clamped to 2x2
+	assert.Len(t, data, 2*2*4)
+
+	// Request with negative coordinates
+	data = fb.GetRect(-1, -1, 5, 5)
+	assert.NotNil(t, data)
+
+	// Zero-size request
+	data = fb.GetRect(0, 0, 0, 5)
+	assert.Nil(t, data)
+}
+
+func TestFramebufferGetRectExactBounds(t *testing.T) {
+	fb := NewFramebuffer(10, 10)
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	for x := 0; x < 10; x++ {
+		for y := 0; y < 10; y++ {
+			img.SetRGBA(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 128, A: 255})
+		}
+	}
+	fb.Update(img)
+
+	// Exact full framebuffer request should work
+	data := fb.GetRect(0, 0, 10, 10)
+	require.NotNil(t, data)
+	assert.Len(t, data, 10*10*4)
+
+	// Request at far edge
+	data = fb.GetRect(9, 9, 1, 1)
+	require.NotNil(t, data)
+	assert.Len(t, data, 4)
+}
+
+func TestVNCAuthVerifyConstantTime(t *testing.T) {
+	password := "testpass"
+	challenge := make([]byte, 16)
+	for i := range challenge {
+		challenge[i] = byte(i)
+	}
+
+	correctResponse := vncAuthEncrypt(challenge, password)
+
+	// Correct password should verify
+	assert.True(t, vncAuthVerify(challenge, correctResponse, password))
+
+	// Wrong response should fail
+	wrongResponse := make([]byte, 16)
+	copy(wrongResponse, correctResponse)
+	wrongResponse[0] ^= 0xFF
+	assert.False(t, vncAuthVerify(challenge, wrongResponse, password))
+
+	// Wrong length response should fail
+	assert.False(t, vncAuthVerify(challenge, correctResponse[:8], password))
+
+	// Empty response should fail
+	assert.False(t, vncAuthVerify(challenge, []byte{}, password))
+}
+
+func TestVNCAuthEmptyPassword(t *testing.T) {
+	challenge := make([]byte, 16)
+	for i := range challenge {
+		challenge[i] = byte(i)
+	}
+
+	// Empty password should still produce a valid encryption
+	encrypted := vncAuthEncrypt(challenge, "")
+	require.Len(t, encrypted, 16)
+
+	assert.True(t, vncAuthVerify(challenge, encrypted, ""))
+	assert.False(t, vncAuthVerify(challenge, encrypted, "notempty"))
+}
+
+func TestServerRequestBeyondFramebuffer(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+	server := NewServer(fb, nil)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	client := newVNCClient(t, listener.Addr().String())
+	defer client.close()
+
+	client.doHandshake("")
+
+	// Request extends beyond framebuffer bounds
+	client.sendFramebufferUpdateRequest(false, 90, 90, 100, 100)
+
+	numRects, err := client.readFramebufferUpdate()
+	require.NoError(t, err)
+	assert.Equal(t, uint16(1), numRects)
+
+	x, y, w, h, data, err := client.readRawRect()
+	require.NoError(t, err)
+	assert.Equal(t, uint16(90), x)
+	assert.Equal(t, uint16(90), y)
+	// Should be clamped to 10x10
+	assert.Equal(t, uint16(10), w)
+	assert.Equal(t, uint16(10), h)
+	assert.Len(t, data, 10*10*4)
+}
+
+func TestServerRequestCompletelyOutOfBounds(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+	server := NewServer(fb, nil)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	client := newVNCClient(t, listener.Addr().String())
+	defer client.close()
+
+	client.doHandshake("")
+
+	// Request completely outside framebuffer
+	client.sendFramebufferUpdateRequest(false, 200, 200, 50, 50)
+
+	numRects, err := client.readFramebufferUpdate()
+	require.NoError(t, err)
+	// Should return 0 rects for out-of-bounds requests
+	assert.Equal(t, uint16(0), numRects)
+}
+
+func (c *vncClientHelper) sendClientCutText(text string) {
+	buf := make([]byte, 8+len(text))
+	buf[0] = msgClientCutText
+	// bytes 1-3 padding
+	binary.BigEndian.PutUint32(buf[4:8], uint32(len(text)))
+	copy(buf[8:], text)
+	_, err := c.conn.Write(buf)
+	require.NoError(c.t, err)
+}
+
+func TestServerClientCutText(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+	server := NewServer(fb, nil)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	client := newVNCClient(t, listener.Addr().String())
+	defer client.close()
+
+	client.doHandshake("")
+
+	// Send clipboard text (should not crash)
+	client.sendClientCutText("hello clipboard")
+
+	// Connection should still be alive after cut text
+	client.sendFramebufferUpdateRequest(false, 0, 0, 1, 1)
+	numRects, err := client.readFramebufferUpdate()
+	require.NoError(t, err)
+	assert.Equal(t, uint16(1), numRects)
+}
+
+func (c *vncClientHelper) sendSetPixelFormat() {
+	buf := make([]byte, 20)
+	buf[0] = msgSetPixelFormat
+	// bytes 1-3 padding
+	// bytes 4-19: pixel format (16 bytes) - use defaults
+	pf := defaultPixelFormat()
+	pf.write(bytes.NewBuffer(buf[4:4]))
+	_, err := c.conn.Write(buf)
+	require.NoError(c.t, err)
+}
+
+func TestServerSetPixelFormat(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+	server := NewServer(fb, nil)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	client := newVNCClient(t, listener.Addr().String())
+	defer client.close()
+
+	client.doHandshake("")
+
+	// Send SetPixelFormat (should not crash)
+	client.sendSetPixelFormat()
+
+	// Connection should still work
+	client.sendFramebufferUpdateRequest(false, 0, 0, 1, 1)
+	numRects, err := client.readFramebufferUpdate()
+	require.NoError(t, err)
+	assert.Equal(t, uint16(1), numRects)
+}
+
+func (c *vncClientHelper) sendSetEncodings(encodingTypes []int32) {
+	buf := make([]byte, 4+len(encodingTypes)*4)
+	buf[0] = msgSetEncodings
+	// byte 1: padding
+	binary.BigEndian.PutUint16(buf[2:4], uint16(len(encodingTypes)))
+	for i, enc := range encodingTypes {
+		binary.BigEndian.PutUint32(buf[4+i*4:8+i*4], uint32(enc))
+	}
+	_, err := c.conn.Write(buf)
+	require.NoError(c.t, err)
+}
+
+func TestServerSetEncodings(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+	server := NewServer(fb, nil)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	client := newVNCClient(t, listener.Addr().String())
+	defer client.close()
+
+	client.doHandshake("")
+
+	// Send SetEncodings with raw encoding
+	client.sendSetEncodings([]int32{encodingRaw})
+
+	// Connection should still work
+	client.sendFramebufferUpdateRequest(false, 0, 0, 1, 1)
+	numRects, err := client.readFramebufferUpdate()
+	require.NoError(t, err)
+	assert.Equal(t, uint16(1), numRects)
+}
+
+func TestNewServerWithOptions(t *testing.T) {
+	fb := NewFramebuffer(100, 100)
+
+	// Test with no options
+	s1 := NewServer(fb, nil)
+	assert.NotNil(t, s1)
+	assert.Empty(t, s1.password)
+	assert.Nil(t, s1.logger)
+
+	// Test with password option
+	s2 := NewServer(fb, nil, WithPassword("secret"))
+	assert.Equal(t, "secret", s2.password)
+
+	// Test with multiple options
+	handler := &mockInputHandler{}
+	s3 := NewServer(fb, handler, WithPassword("pass"))
+	assert.Equal(t, "pass", s3.password)
+	assert.NotNil(t, s3.inputHandler)
+}

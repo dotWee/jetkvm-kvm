@@ -1,8 +1,9 @@
 package vnc
 
 import (
-	"crypto/des" //nolint:gosec // DES is required by the VNC authentication protocol (RFB spec)
+	"crypto/des"    //nolint:gosec // DES is required by the VNC authentication protocol (RFB spec)
 	"crypto/rand"
+	"crypto/subtle"
 	"io"
 )
 
@@ -17,17 +18,13 @@ func vncAuthChallenge() ([]byte, error) {
 
 // vncAuthVerify verifies the VNC authentication response against the challenge and password.
 // It returns true if the response matches the expected DES-encrypted challenge.
+// Uses constant-time comparison to prevent timing attacks.
 func vncAuthVerify(challenge, response []byte, password string) bool {
 	expected := vncAuthEncrypt(challenge, password)
 	if len(response) != len(expected) {
 		return false
 	}
-	for i := range expected {
-		if response[i] != expected[i] {
-			return false
-		}
-	}
-	return true
+	return subtle.ConstantTimeCompare(response, expected) == 1
 }
 
 // vncAuthEncrypt performs VNC DES encryption of the challenge with the password.
