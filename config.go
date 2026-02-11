@@ -115,6 +115,9 @@ type Config struct {
 	VideoSleepAfterSec   int                  `json:"video_sleep_after_sec"`
 	VideoQualityFactor   float64              `json:"video_quality_factor"`
 	NativeMaxRestart     uint                 `json:"native_max_restart_attempts"`
+	VNCEnabled           bool                 `json:"vnc_enabled"`
+	VNCPort              int                  `json:"vnc_port"`
+	VNCPassword          string               `json:"vnc_password"`
 }
 
 // GetUpdateAPIURL returns the update API URL
@@ -198,6 +201,7 @@ func getDefaultConfig() Config {
 		}(),
 		DefaultLogLevel:    "WARN",
 		VideoQualityFactor: 1.0,
+		VNCPort:            5900,
 	}
 }
 
