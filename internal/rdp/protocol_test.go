@@ -174,3 +174,46 @@ func TestTPKTRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestGrdpConstantAlignment verifies that our aliased constants from
+// grdp/protocol/pdu match the expected RDP protocol values.
+func TestGrdpConstantAlignment(t *testing.T) {
+	// Input event types
+	if InputEventSync != 0x0000 {
+		t.Errorf("InputEventSync = 0x%04X, want 0x0000", InputEventSync)
+	}
+	if InputEventScancode != 0x0004 {
+		t.Errorf("InputEventScancode = 0x%04X, want 0x0004", InputEventScancode)
+	}
+	if InputEventUnicode != 0x0005 {
+		t.Errorf("InputEventUnicode = 0x%04X, want 0x0005", InputEventUnicode)
+	}
+	if InputEventMouse != 0x8001 {
+		t.Errorf("InputEventMouse = 0x%04X, want 0x8001", InputEventMouse)
+	}
+
+	// Mouse flags
+	if MouseFlagMove != 0x0800 {
+		t.Errorf("MouseFlagMove = 0x%04X, want 0x0800", MouseFlagMove)
+	}
+	if MouseFlagButton1 != 0x1000 {
+		t.Errorf("MouseFlagButton1 = 0x%04X, want 0x1000", MouseFlagButton1)
+	}
+	if MouseFlagButton2 != 0x2000 {
+		t.Errorf("MouseFlagButton2 = 0x%04X, want 0x2000", MouseFlagButton2)
+	}
+	if MouseFlagButton3 != 0x4000 {
+		t.Errorf("MouseFlagButton3 = 0x%04X, want 0x4000", MouseFlagButton3)
+	}
+	if MouseFlagDown != 0x8000 {
+		t.Errorf("MouseFlagDown = 0x%04X, want 0x8000", MouseFlagDown)
+	}
+
+	// Keyboard flags
+	if KeyFlagExtended != 0x0100 {
+		t.Errorf("KeyFlagExtended = 0x%04X, want 0x0100", KeyFlagExtended)
+	}
+	if KeyFlagRelease != 0x8000 {
+		t.Errorf("KeyFlagRelease = 0x%04X, want 0x8000", KeyFlagRelease)
+	}
+}

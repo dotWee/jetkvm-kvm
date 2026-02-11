@@ -19,6 +19,7 @@ require (
 	github.com/gwatts/rootcerts v0.0.0-20250901182336-dc5ae18bd79f
 	github.com/insomniacslk/dhcp v0.0.0-20250919081422-f80a1952f48e
 	github.com/mdlayher/ndp v1.1.0
+	github.com/nakagami/grdp v0.3.9
 	github.com/pion/ice/v4 v4.1.0
 	github.com/pion/logging v0.2.4
 	github.com/pion/mdns/v2 v2.1.0
@@ -72,7 +73,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nakagami/grdp v0.3.9 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pilebones/go-udev v0.9.1 // indirect

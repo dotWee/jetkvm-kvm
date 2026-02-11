@@ -1,10 +1,14 @@
 package rdp
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/nakagami/grdp/core"
+	"github.com/nakagami/grdp/protocol/pdu"
 )
 
 // RDP protocol constants.
@@ -64,27 +68,6 @@ const (
 	pduTypeDataShutReq     = 36
 	pduTypeDataShutDenied  = 37
 
-	// RDP Input event types.
-	InputEventSync     = 0x0000
-	InputEventScancode = 0x0004
-	InputEventUnicode  = 0x0005
-	InputEventMouse    = 0x8001
-
-	// Mouse event flags.
-	MouseFlagMove       = 0x0800
-	MouseFlagButton1    = 0x1000
-	MouseFlagButton2    = 0x2000
-	MouseFlagButton3    = 0x4000
-	MouseFlagDown       = 0x8000
-	MouseFlagWheelUp    = 0x0200
-	MouseFlagWheelDown  = 0x0400
-	MouseFlagWheelMask  = 0x01FF
-
-	// Keyboard event flags.
-	KeyFlagExtended = 0x0100
-	KeyFlagDown     = 0x0000
-	KeyFlagRelease  = 0x8000
-
 	// Capability set types.
 	capGeneral     = 0x0001
 	capBitmap      = 0x0002
@@ -98,6 +81,33 @@ const (
 
 	// Bitmap encoding types.
 	bitmapCompNone = 0x0000
+)
+
+// Input event type constants — aliased from grdp/protocol/pdu.
+const (
+	InputEventSync     = pdu.INPUT_EVENT_SYNC
+	InputEventScancode = pdu.INPUT_EVENT_SCANCODE
+	InputEventUnicode  = pdu.INPUT_EVENT_UNICODE
+	InputEventMouse    = pdu.INPUT_EVENT_MOUSE
+)
+
+// Mouse event flag constants — aliased from grdp/protocol/pdu.
+const (
+	MouseFlagMove      = pdu.PTRFLAGS_MOVE
+	MouseFlagButton1   = pdu.PTRFLAGS_BUTTON1
+	MouseFlagButton2   = pdu.PTRFLAGS_BUTTON2
+	MouseFlagButton3   = pdu.PTRFLAGS_BUTTON3
+	MouseFlagDown      = pdu.PTRFLAGS_DOWN
+	MouseFlagWheelUp   = pdu.PTRFLAGS_WHEEL
+	MouseFlagWheelDown = pdu.PTRFLAGS_HWHEEL
+	MouseFlagWheelMask = pdu.WheelRotationMask
+)
+
+// Keyboard event flag constants — aliased from grdp/protocol/pdu.
+const (
+	KeyFlagExtended = pdu.KBDFLAGS_EXTENDED
+	KeyFlagDown     = 0x0000
+	KeyFlagRelease  = pdu.KBDFLAGS_RELEASE
 )
 
 // Errors.
@@ -117,35 +127,39 @@ type tpktHeader struct {
 	Length   uint16
 }
 
+// readTPKT reads a TPKT packet using grdp/core I/O utilities.
 func readTPKT(r io.Reader) (tpktHeader, []byte, error) {
-	var hdr tpktHeader
-	if err := binary.Read(r, binary.BigEndian, &hdr); err != nil {
-		return hdr, nil, fmt.Errorf("read TPKT header: %w", err)
+	// Read 4-byte TPKT header using core I/O. We read all 4 bytes at once
+	// and parse them, since grdp's ReadUInt8 can panic on EOF.
+	hdrBytes, err := core.ReadBytes(tpktHeaderLen, r)
+	if err != nil {
+		return tpktHeader{}, nil, fmt.Errorf("read TPKT header: %w", err)
 	}
-	if hdr.Version != tpktVersion {
-		return hdr, nil, ErrInvalidTPKT
+	version := hdrBytes[0]
+	if version != tpktVersion {
+		return tpktHeader{}, nil, ErrInvalidTPKT
 	}
+	length := binary.BigEndian.Uint16(hdrBytes[2:4])
+	hdr := tpktHeader{Version: version, Reserved: hdrBytes[1], Length: length}
 	if hdr.Length < tpktHeaderLen {
 		return hdr, nil, ErrInvalidPacketLen
 	}
-	payload := make([]byte, hdr.Length-tpktHeaderLen)
-	if _, err := io.ReadFull(r, payload); err != nil {
+	payload, err := core.ReadBytes(int(hdr.Length-tpktHeaderLen), r)
+	if err != nil {
 		return hdr, nil, fmt.Errorf("read TPKT payload: %w", err)
 	}
 	return hdr, payload, nil
 }
 
+// writeTPKT writes a TPKT packet using grdp/core I/O utilities.
 func writeTPKT(w io.Writer, payload []byte) error {
-	hdr := tpktHeader{
-		Version:  tpktVersion,
-		Reserved: 0,
-		Length:   uint16(tpktHeaderLen + len(payload)),
-	}
-	if err := binary.Write(w, binary.BigEndian, &hdr); err != nil {
-		return fmt.Errorf("write TPKT header: %w", err)
-	}
-	if _, err := w.Write(payload); err != nil {
-		return fmt.Errorf("write TPKT payload: %w", err)
+	buf := &bytes.Buffer{}
+	core.WriteUInt8(tpktVersion, buf)
+	core.WriteUInt8(0, buf) // reserved
+	core.WriteUInt16BE(uint16(tpktHeaderLen+len(payload)), buf)
+	buf.Write(payload)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		return fmt.Errorf("write TPKT: %w", err)
 	}
 	return nil
 }
