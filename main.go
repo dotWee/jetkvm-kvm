@@ -172,6 +172,10 @@ func Main() {
 
 	initSerialPort()
 
+	// Initialize RDP server
+	setProcTitle("initRDP")
+	initRDPServer()
+
 	setProcTitle("ready")
 
 	sigs := make(chan os.Signal, 1)
