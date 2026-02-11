@@ -194,10 +194,6 @@ func parseX224ConnectionRequest(data []byte) (x224Header, *negoRequest, error) {
 
 	// Look for RDP Negotiation Request after any cookie/routing token
 	var nego *negoRequest
-	remaining := data[hdr.Length:]
-	if int(hdr.Length) < len(data) {
-		remaining = data[hdr.Length:]
-	}
 
 	// Search from offset 7 for the negotiation request (type 0x01)
 	for i := 7; i+7 < len(data); i++ {
@@ -214,7 +210,6 @@ func parseX224ConnectionRequest(data []byte) (x224Header, *negoRequest, error) {
 		}
 	}
 
-	_ = remaining
 	return hdr, nego, nil
 }
 

@@ -66,6 +66,7 @@ type Session struct {
 	// Frame tracking for incremental updates.
 	lastFrame *image.RGBA
 	tileSize  int
+	frameRate int
 
 	// Callbacks.
 	inputHandler  InputHandler
@@ -97,6 +98,7 @@ type SessionConfig struct {
 	Width         uint16
 	Height        uint16
 	TileSize      int
+	FrameRate     int // Target FPS (default: 30)
 	InputHandler  InputHandler
 	FrameProvider FrameProvider
 	Log           Logger
@@ -114,12 +116,18 @@ func newSession(conn net.Conn, cfg SessionConfig) *Session {
 		tileSize = 64
 	}
 
+	frameRate := cfg.FrameRate
+	if frameRate <= 0 {
+		frameRate = 30
+	}
+
 	return &Session{
 		conn:          conn,
 		state:         StateNegotiation,
 		width:         cfg.Width,
 		height:        cfg.Height,
 		tileSize:      tileSize,
+		frameRate:     frameRate,
 		inputHandler:  cfg.InputHandler,
 		frameProvider: cfg.FrameProvider,
 		done:          make(chan struct{}),
@@ -388,7 +396,8 @@ func (s *Session) runActiveSession() error {
 
 // frameSenderLoop periodically sends screen updates to the client.
 func (s *Session) frameSenderLoop() {
-	ticker := time.NewTicker(100 * time.Millisecond) // ~10 FPS
+	interval := time.Second / time.Duration(s.frameRate)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {

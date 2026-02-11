@@ -71,6 +71,9 @@ func TestNewSessionDefaults(t *testing.T) {
 	if sess.tileSize != 64 {
 		t.Errorf("default tileSize = %d, want 64", sess.tileSize)
 	}
+	if sess.frameRate != 30 {
+		t.Errorf("default frameRate = %d, want 30", sess.frameRate)
+	}
 }
 
 func TestSessionClose(t *testing.T) {
