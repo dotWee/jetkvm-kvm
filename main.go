@@ -166,6 +166,9 @@ func Main() {
 		startWebSecureServer()
 	}
 
+	// Start VNC server if enabled
+	startVNCServer()
+
 	// As websocket client already checks if the cloud token is set, we can start it here.
 	go RunWebsocketClient()
 	initPublicIPState()
