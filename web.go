@@ -221,6 +221,10 @@ func setupRouter() *gin.Engine {
 		protected.POST("/device/send-wol/:mac-addr", handleSendWOLMagicPacket)
 
 		protected.GET("/diagnostics", handleDiagnosticsDownload)
+
+		// VNC
+		protected.GET("/vnc/state", handleVNCState)
+		protected.PUT("/vnc/settings", handleVNCSettings)
 	}
 
 	// Catch-all route for SPA
@@ -1030,4 +1034,53 @@ func addBytesToZip(zw *zip.Writer, name string, data []byte) error {
 	}
 	_, err = w.Write(data)
 	return err
+}
+
+// VNC REST handlers
+
+func handleVNCState(c *gin.Context) {
+	state, err := rpcGetVNCState()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, state)
+}
+
+type VNCSettingsRequest struct {
+	Enabled  *bool   `json:"enabled,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	Password *string `json:"password,omitempty"`
+}
+
+func handleVNCSettings(c *gin.Context) {
+	var req VNCSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if req.Password != nil {
+		if err := rpcSetVNCPassword(*req.Password); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	if req.Port != nil {
+		if err := rpcSetVNCPort(*req.Port); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	if req.Enabled != nil {
+		if err := rpcSetVNCEnabled(*req.Enabled); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	state, _ := rpcGetVNCState()
+	c.JSON(http.StatusOK, state)
 }

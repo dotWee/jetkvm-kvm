@@ -126,6 +126,10 @@ func Main() {
 	// start video sleep mode timer
 	startVideoSleepModeTicker()
 
+	// Initialize VNC server
+	setProcTitle("initVNC")
+	initVNC()
+
 	go func() {
 		// wait for 15 minutes before starting auto-update checks
 		// this is to avoid interfering with initial setup processes

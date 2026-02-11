@@ -118,6 +118,9 @@ type Config struct {
 	VideoQualityFactor   float64              `json:"video_quality_factor"`
 	NativeMaxRestart     uint                 `json:"native_max_restart_attempts"`
 	MqttConfig           *MQTTConfig          `json:"mqtt_config"`
+	VNCEnabled           bool                 `json:"vnc_enabled"`
+	VNCPort              int                  `json:"vnc_port"`
+	VNCPassword          string               `json:"vnc_password,omitempty"`
 }
 
 // GetUpdateAPIURL returns the update API URL
@@ -209,6 +212,8 @@ func getDefaultConfig() Config {
 			EnableActions:     true,
 			DebounceMs:        500,
 		},
+		VNCEnabled: false,
+		VNCPort:    5900,
 	}
 }
 

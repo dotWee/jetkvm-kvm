@@ -59,6 +59,7 @@ const SettingsMqttRoute = lazy(() => import("@routes/devices.$id.settings.mqtt")
 const SettingsMacrosRoute = lazy(() => import("@routes/devices.$id.settings.macros"));
 const SettingsMacrosAddRoute = lazy(() => import("@routes/devices.$id.settings.macros.add"));
 const SettingsMacrosEditRoute = lazy(() => import("@routes/devices.$id.settings.macros.edit"));
+const SettingsVNCRoute = lazy(() => import("@routes/devices.$id.settings.vnc"));
 
 export const isOnDevice = import.meta.env.MODE === "device";
 export const isInCloud = !isOnDevice;
@@ -204,6 +205,10 @@ const getDeviceRoute = (r: Omit<RouteObject, "children" | "index">): RouteObject
               element: <SettingsMacrosEditRoute />,
             },
           ],
+        },
+        {
+          path: "vnc",
+          element: <SettingsVNCRoute />,
         },
       ],
     },
