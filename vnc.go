@@ -80,6 +80,9 @@ func startVNCServer() {
 	}
 
 	fb := vnc.NewFramebuffer(1920, 1080)
+	if lastVideoState.Width > 0 && lastVideoState.Height > 0 {
+		fb = vnc.NewFramebuffer(lastVideoState.Width, lastVideoState.Height)
+	}
 
 	opts := []vnc.Option{
 		vnc.WithLogger(&vncLogger),

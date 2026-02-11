@@ -411,6 +411,21 @@ func TestWriteRawRect(t *testing.T) {
 
 // --- Server Integration Tests ---
 
+// waitForServer polls until a TCP connection can be established, or fails the test.
+func waitForServer(t *testing.T, addr string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("server did not start in time")
+}
+
 func TestServerStartStop(t *testing.T) {
 	fb := NewFramebuffer(800, 600)
 	server := NewServer(fb, nil)
@@ -423,8 +438,8 @@ func TestServerStartStop(t *testing.T) {
 		errCh <- server.Serve(listener)
 	}()
 
-	// Give server time to start
-	time.Sleep(50 * time.Millisecond)
+	// Verify server is accepting connections by connecting
+	waitForServer(t, listener.Addr().String())
 
 	err = server.Close()
 	require.NoError(t, err)
@@ -441,7 +456,7 @@ func TestServerDoubleClose(t *testing.T) {
 	require.NoError(t, err)
 
 	go func() { _ = server.Serve(listener) }()
-	time.Sleep(50 * time.Millisecond)
+	waitForServer(t, listener.Addr().String())
 
 	require.NoError(t, server.Close())
 	require.NoError(t, server.Close()) // second close should not error
@@ -689,8 +704,10 @@ func TestServerKeyEvents(t *testing.T) {
 	_, _, _, _, _, err = client.readRawRect()
 	require.NoError(t, err)
 
-	// Allow time for events to be processed
-	time.Sleep(100 * time.Millisecond)
+	// Poll for events to be processed
+	require.Eventually(t, func() bool {
+		return len(handler.getKeyEvents()) == 3
+	}, 2*time.Second, 10*time.Millisecond)
 
 	events := handler.getKeyEvents()
 	require.Len(t, events, 3)
@@ -730,7 +747,10 @@ func TestServerPointerEvents(t *testing.T) {
 	_, _, _, _, _, err = client.readRawRect()
 	require.NoError(t, err)
 
-	time.Sleep(100 * time.Millisecond)
+	// Poll for events to be processed
+	require.Eventually(t, func() bool {
+		return len(handler.getPointerEvents()) == 3
+	}, 2*time.Second, 10*time.Millisecond)
 
 	events := handler.getPointerEvents()
 	require.Len(t, events, 3)
