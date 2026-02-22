@@ -10,6 +10,7 @@ import (
 	"github.com/jetkvm/kvm/internal/confparser"
 	"github.com/jetkvm/kvm/internal/logging"
 	"github.com/jetkvm/kvm/internal/network/types"
+	"github.com/jetkvm/kvm/internal/rdp"
 	"github.com/jetkvm/kvm/internal/sync"
 	"github.com/jetkvm/kvm/internal/usbgadget"
 
@@ -115,6 +116,7 @@ type Config struct {
 	VideoSleepAfterSec   int                  `json:"video_sleep_after_sec"`
 	VideoQualityFactor   float64              `json:"video_quality_factor"`
 	NativeMaxRestart     uint                 `json:"native_max_restart_attempts"`
+	RDPConfig            *rdp.ServerConfig    `json:"rdp_config"`
 }
 
 // GetUpdateAPIURL returns the update API URL
@@ -170,6 +172,14 @@ var (
 		Keyboard:      true,
 		MassStorage:   true,
 	}
+	defaultRDPConfig = rdp.ServerConfig{
+		Port:        rdp.DefaultPort,
+		Enabled:     false,
+		Width:       1920,
+		Height:      1080,
+		TileSize:    64,
+		MaxSessions: 1,
+	}
 )
 
 func getDefaultConfig() Config {
@@ -198,6 +208,7 @@ func getDefaultConfig() Config {
 		}(),
 		DefaultLogLevel:    "WARN",
 		VideoQualityFactor: 1.0,
+		RDPConfig:          func() *rdp.ServerConfig { c := defaultRDPConfig; return &c }(),
 	}
 }
 
@@ -266,6 +277,10 @@ func LoadConfig() {
 
 	if loadedConfig.JigglerConfig == nil {
 		loadedConfig.JigglerConfig = getDefaultConfig().JigglerConfig
+	}
+
+	if loadedConfig.RDPConfig == nil {
+		loadedConfig.RDPConfig = getDefaultConfig().RDPConfig
 	}
 
 	// fixup old keyboard layout value
