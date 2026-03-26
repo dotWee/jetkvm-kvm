@@ -348,6 +348,69 @@ func TestServerGracefulShutdown(t *testing.T) {
 	}
 }
 
+func TestClientCutTextBroadcast(t *testing.T) {
+	frame := makeTestFrameData(16, 16)
+
+	var srv *Server
+	cutTextCh := make(chan string, 1)
+	onCutText := func(text string) {
+		cutTextCh <- text
+		if srv != nil {
+			srv.BroadcastCutText(text)
+		}
+	}
+
+	srv = NewServer(ServerConfig{
+		Addr: "127.0.0.1:0",
+		Name: "Clipboard",
+		FrameProvider: &testFrameProvider{
+			width: 16, height: 16, frame: frame,
+		},
+		SecurityHandlers: []SecurityHandler{&SecurityNone{}},
+		Logger:           zerolog.Nop(),
+		OnClientCutText:  onCutText,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = srv.Listen(ctx) }()
+	time.Sleep(50 * time.Millisecond)
+
+	conn, err := net.DialTimeout("tcp", srv.Addr(), 2*time.Second)
+	require.NoError(t, err)
+	defer conn.Close()
+	doClientHandshake(t, conn)
+
+	// Send ClientCutText.
+	text := "hello clipboard"
+	msg := make([]byte, 1+3+4+len(text))
+	msg[0] = MsgClientCutText
+	binary.BigEndian.PutUint32(msg[4:8], uint32(len(text)))
+	copy(msg[8:], []byte(text))
+	_, err = conn.Write(msg)
+	require.NoError(t, err)
+
+	select {
+	case got := <-cutTextCh:
+		assert.Equal(t, text, got)
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not receive OnClientCutText callback")
+	}
+
+	// Expect ServerCutText echoed back.
+	hdr := make([]byte, 8)
+	_, err = io.ReadFull(conn, hdr)
+	require.NoError(t, err)
+	assert.Equal(t, byte(MsgServerCutText), hdr[0])
+	n := binary.BigEndian.Uint32(hdr[4:8])
+	require.Equal(t, uint32(len(text)), n)
+
+	body := make([]byte, n)
+	_, err = io.ReadFull(conn, body)
+	require.NoError(t, err)
+	assert.Equal(t, text, string(body))
+}
+
 // doClientHandshake performs a minimal VNC client handshake for testing.
 func doClientHandshake(t *testing.T, conn net.Conn) {
 	t.Helper()

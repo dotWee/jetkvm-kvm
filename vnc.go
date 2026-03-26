@@ -197,6 +197,12 @@ func initVNC() {
 		Input:            newVNCInputHandler(),
 		SecurityHandlers: securityHandlers,
 		Logger:           *vncLogger,
+		OnClientCutText: func(text string) {
+			// Minimal clipboard sync: broadcast to other VNC clients.
+			if vncServer != nil {
+				vncServer.BroadcastCutText(text)
+			}
+		},
 		OnClientConnected: func() {
 			if incrActiveSessions() == 1 {
 				vncLogger.Info().Msg("first session connected via VNC, starting video")

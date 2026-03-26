@@ -38,6 +38,10 @@ type ServerConfig struct {
 
 	// OnClientDisconnected is called when a client disconnects.
 	OnClientDisconnected func()
+
+	// OnClientCutText is called when a client sends clipboard text (ClientCutText).
+	// This can be used to implement clipboard sync or forward clipboard contents.
+	OnClientCutText func(text string)
 }
 
 // Server is a VNC/RFB server that listens for TCP connections.
@@ -47,6 +51,20 @@ type Server struct {
 	clients  sync.Map // map[string]*ClientConn
 	clientID atomic.Int64
 	mu       sync.Mutex
+}
+
+// BroadcastCutText sends a ServerCutText message to all connected clients.
+func (s *Server) BroadcastCutText(text string) {
+	s.clients.Range(func(_, v any) bool {
+		cc, ok := v.(*ClientConn)
+		if !ok || cc == nil {
+			return true
+		}
+		if err := cc.sendServerCutText(text); err != nil {
+			cc.logger.Debug().Err(err).Msg("failed to broadcast clipboard to client")
+		}
+		return true
+	})
 }
 
 // NewServer creates a new VNC server with the given configuration.
@@ -147,6 +165,7 @@ type ClientConn struct {
 	fbWidth     uint16
 	fbHeight    uint16
 	mu          sync.Mutex
+	writeMu     sync.Mutex
 }
 
 func newClientConn(conn net.Conn, id int64, server *Server, logger zerolog.Logger) *ClientConn {
@@ -320,12 +339,14 @@ func (cc *ClientConn) messageLoop(ctx context.Context) {
 			cc.handlePointerEvent(msg)
 
 		case MsgClientCutText:
-			_, err := ReadClientCutText(cc.conn)
+			msg, err := ReadClientCutText(cc.conn)
 			if err != nil {
 				cc.logger.Warn().Err(err).Msg("failed to read ClientCutText")
 				return
 			}
-			// Clipboard not supported yet, silently ignore
+			if cc.server.config.OnClientCutText != nil {
+				cc.server.config.OnClientCutText(msg.Text)
+			}
 
 		default:
 			cc.logger.Warn().Uint8("type", typeBuf[0]).Msg("unknown message type")
@@ -370,6 +391,8 @@ func (cc *ClientConn) handleFramebufferUpdateRequest(msg FramebufferUpdateReques
 	frame := cc.server.config.FrameProvider.GetFrame()
 	if frame == nil {
 		// No frame available, send empty update
+		cc.writeMu.Lock()
+		defer cc.writeMu.Unlock()
 		return WriteFramebufferUpdate(cc.conn, 0)
 	}
 
@@ -405,6 +428,9 @@ func (cc *ClientConn) handleFramebufferUpdateRequest(msg FramebufferUpdateReques
 		rect.Height = uint16(frame.Height) - rect.Y
 	}
 
+	cc.writeMu.Lock()
+	defer cc.writeMu.Unlock()
+
 	// Write framebuffer update
 	if err := WriteFramebufferUpdate(cc.conn, 1); err != nil {
 		return err
@@ -420,6 +446,9 @@ func (cc *ClientConn) handleFramebufferUpdateRequest(msg FramebufferUpdateReques
 }
 
 func (cc *ClientConn) sendDesktopSizeUpdate(width, height uint16) error {
+	cc.writeMu.Lock()
+	defer cc.writeMu.Unlock()
+
 	if err := WriteFramebufferUpdate(cc.conn, 1); err != nil {
 		return err
 	}
@@ -432,6 +461,12 @@ func (cc *ClientConn) sendDesktopSizeUpdate(width, height uint16) error {
 	}
 	_, err := cc.conn.Write(rect.MarshalHeader())
 	return err
+}
+
+func (cc *ClientConn) sendServerCutText(text string) error {
+	cc.writeMu.Lock()
+	defer cc.writeMu.Unlock()
+	return WriteServerCutText(cc.conn, text)
 }
 
 func (cc *ClientConn) handleKeyEvent(msg KeyEventMsg) {
