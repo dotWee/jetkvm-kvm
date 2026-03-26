@@ -1057,7 +1057,7 @@ func rpcSetLocalLoopbackOnly(enabled bool) error {
 
 	// Re-bind VNC server to the new address family / loopback policy if enabled.
 	if config.VNCEnabled {
-		restartVNC()
+		return restartVNC()
 	}
 
 	return nil

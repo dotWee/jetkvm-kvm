@@ -128,7 +128,9 @@ func Main() {
 
 	// Initialize VNC server
 	setProcTitle("initVNC")
-	initVNC()
+	if err := initVNC(); err != nil {
+		logger.Error().Err(err).Msg("failed to start VNC server")
+	}
 
 	go func() {
 		// wait for 15 minutes before starting auto-update checks

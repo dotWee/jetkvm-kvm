@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"net"
 
 	"github.com/jetkvm/kvm/internal/rfb"
 )
@@ -157,10 +158,10 @@ func (h *vncInputHandler) PointerEvent(buttonMask uint8, x, y uint16) {
 var vncFrameProv *vncFrameProvider
 
 // initVNC initializes and starts the VNC server if enabled in config.
-func initVNC() {
+func initVNC() error {
 	if !config.VNCEnabled {
 		vncLogger.Info().Msg("VNC server disabled")
-		return
+		return nil
 	}
 
 	vncFrameProv = newVNCFrameProvider()
@@ -188,8 +189,20 @@ func initVNC() {
 	addr := getBindAddress(config.VNCPort)
 	if addr == "" {
 		vncLogger.Error().Int("port", config.VNCPort).Msg("VNC server bind address is empty, not starting")
-		return
+		return fmt.Errorf("vnc bind address is empty")
 	}
+
+	if config.VNCPassword == "" && !config.LocalLoopbackOnly {
+		vncLogger.Warn().Str("addr", addr).Msg("VNC enabled without password on non-loopback interface")
+	}
+
+	// Preflight bind check so RPC callers can get a synchronous error on obvious failures.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to bind VNC address %q: %w", addr, err)
+	}
+	_ = ln.Close()
+
 	vncServer = rfb.NewServer(rfb.ServerConfig{
 		Addr:             addr,
 		Name:             "JetKVM",
@@ -225,6 +238,7 @@ func initVNC() {
 			vncLogger.Error().Err(err).Msg("VNC server error")
 		}
 	}()
+	return nil
 }
 
 // stopVNC stops the VNC server if running.
@@ -237,9 +251,9 @@ func stopVNC() {
 }
 
 // restartVNC restarts the VNC server with current config.
-func restartVNC() {
+func restartVNC() error {
 	stopVNC()
-	initVNC()
+	return initVNC()
 }
 
 // --- JSON-RPC handlers for VNC ---
@@ -271,7 +285,7 @@ func rpcSetVNCEnabled(enabled bool) error {
 	}
 	if enabled {
 		if vncServer == nil {
-			initVNC()
+			return initVNC()
 		}
 	} else {
 		stopVNC()
@@ -288,7 +302,7 @@ func rpcSetVNCPort(port int) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 	if config.VNCEnabled {
-		restartVNC()
+		return restartVNC()
 	}
 	return nil
 }
@@ -299,7 +313,7 @@ func rpcSetVNCPassword(password string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 	if config.VNCEnabled {
-		restartVNC()
+		return restartVNC()
 	}
 	return nil
 }
