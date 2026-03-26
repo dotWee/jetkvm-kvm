@@ -1055,6 +1055,11 @@ func rpcSetLocalLoopbackOnly(enabled bool) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
+	// Re-bind VNC server to the new address family / loopback policy if enabled.
+	if config.VNCEnabled {
+		restartVNC()
+	}
+
 	return nil
 }
 

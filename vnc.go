@@ -185,7 +185,11 @@ func initVNC() {
 	}
 	securityHandlers = append(securityHandlers, &rfb.SecurityNone{})
 
-	addr := fmt.Sprintf(":%d", config.VNCPort)
+	addr := getBindAddress(config.VNCPort)
+	if addr == "" {
+		vncLogger.Error().Int("port", config.VNCPort).Msg("VNC server bind address is empty, not starting")
+		return
+	}
 	vncServer = rfb.NewServer(rfb.ServerConfig{
 		Addr:             addr,
 		Name:             "JetKVM",
