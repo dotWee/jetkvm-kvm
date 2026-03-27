@@ -114,12 +114,12 @@ func (h *vncInputHandler) PointerEvent(buttonMask uint8, x, y uint16) {
 
 	// Handle scroll wheel (VNC buttons 4 and 5)
 	if buttonMask&0x08 != 0 { // button 4 = scroll up
-		if err := rpcWheelReport(1); err != nil {
+		if err := rpcWheelReport(1, 0); err != nil {
 			vncLogger.Warn().Err(err).Msg("failed to send wheel report")
 		}
 	}
 	if buttonMask&0x10 != 0 { // button 5 = scroll down
-		if err := rpcWheelReport(-1); err != nil {
+		if err := rpcWheelReport(-1, 0); err != nil {
 			vncLogger.Warn().Err(err).Msg("failed to send wheel report")
 		}
 	}
