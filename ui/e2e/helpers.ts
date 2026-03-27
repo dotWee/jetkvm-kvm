@@ -722,7 +722,7 @@ export async function restartAppViaSSH(): Promise<void> {
     true,
   );
   await new Promise(r => setTimeout(r, 1000));
-  await waitForDeviceReady(getDeviceHost(), 15000);
+  await waitForDeviceReady(getDeviceHost(), 90000);
 }
 
 // ── Local Auth Mode Management ──
@@ -897,21 +897,30 @@ export function getDeviceHost(): string {
 export async function waitForDeviceReady(host: string, timeout = 60000): Promise<void> {
   const startTime = Date.now();
   const url = `http://${host}`;
+  let lastError: string | null = null;
+  let lastStatus: number | null = null;
 
   while (Date.now() - startTime < timeout) {
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (response.ok || response.status === 401 || response.status === 302) {
-        // Device is responding (even if it redirects to login)
+      lastStatus = response.status;
+      // Treat any non-5xx HTTP response as ready. During startup the app can
+      // temporarily return redirects or auth responses before full UI readiness.
+      if (response.status < 500) {
         return;
       }
+      lastError = `http ${response.status}`;
     } catch {
-      // Device not ready yet, continue waiting
+      lastError = "network unavailable";
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  throw new Error(`Device at ${host} did not become ready within ${timeout}ms`);
+  const statusInfo = lastStatus !== null ? `last status=${lastStatus}` : "no http status observed";
+  const reasonInfo = lastError ? `, last error=${lastError}` : "";
+  throw new Error(
+    `Device at ${host} did not become ready within ${timeout}ms (${statusInfo}${reasonInfo})`,
+  );
 }
 
 export async function rebootDeviceViaSSH(waitForReady = true): Promise<void> {
