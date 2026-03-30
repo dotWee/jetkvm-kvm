@@ -22,7 +22,8 @@ CMAKE_BUILD_TYPE ?= Release
 # Required for signing releases
 SIGNING_KEY_FPR ?=
 
-GO_BUILD_ARGS := -tags netgo,timetzdata,nomsgpack
+# Device binaries must include jetkvm_native or the native proxy process will panic at startup.
+GO_BUILD_ARGS := -tags netgo,timetzdata,nomsgpack,jetkvm_native
 ifeq ($(ENABLE_SYNC_TRACE), 1)
 	GO_BUILD_ARGS := $(GO_BUILD_ARGS),synctrace
 endif
